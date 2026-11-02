@@ -102,13 +102,25 @@ select,.btn{height:46px;border:1px solid var(--ink-20);border-radius:var(--r);ba
 /* drawer */
 .scrim{position:fixed;inset:0;background:rgba(13,13,18,.35);opacity:0;pointer-events:none;transition:opacity .2s;z-index:40}
 .scrim.on{opacity:1;pointer-events:auto}
-.drawer{position:fixed;top:0;right:0;bottom:0;height:100vh;height:100dvh;width:min(820px,100%);background:var(--surface);z-index:50;transform:translateX(100%);transition:transform .25s ease;display:flex;flex-direction:column;border-left:1px solid var(--ink-20)}
+.drawer{position:fixed;top:0;right:0;bottom:0;height:100vh;height:100dvh;width:min(var(--dw,820px),100%);background:var(--surface);z-index:50;transform:translateX(100%);transition:transform .25s ease;display:flex;flex-direction:column;border-left:1px solid var(--ink-20);scrollbar-gutter:stable}
+.drawer.resizing{transition:none;user-select:none}
+.rz{position:absolute;left:-6px;top:0;bottom:0;width:12px;cursor:col-resize;z-index:2}
+.rz::after{content:"";position:absolute;left:5px;top:0;bottom:0;width:2px;background:transparent;transition:background .15s}
+.rz:hover::after,.drawer.resizing .rz::after{background:var(--key)}
+.rz .grip{position:absolute;left:1px;top:50%;width:10px;height:44px;margin-top:-22px;border-radius:5px;background:var(--surface);border:1px solid var(--ink-20);display:flex;align-items:center;justify-content:center;color:var(--ink-40)}
+.rz .grip::before{content:"";width:2px;height:18px;border-left:1px solid currentColor;border-right:1px solid currentColor}
+.db::-webkit-scrollbar{width:10px}
+.db::-webkit-scrollbar-thumb{background:var(--ink-20);border-radius:5px;border:2px solid var(--surface)}
+.db::-webkit-scrollbar-track{background:transparent}
+.db{scrollbar-width:thin;scrollbar-color:var(--ink-20) transparent}
+.db:focus{outline:none}
 .drawer.on{transform:none}
 .dh{padding:20px 32px 16px;border-bottom:1px solid var(--ink-20);display:flex;gap:12px;align-items:flex-start;flex:none}
 .dh .t{flex:1}
 .dh h2{font:700 24px/1.4 var(--font);margin:6px 0 0}
 .dh .meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .dh .meta .uid{margin-left:0}
+.dh .btns{display:flex;gap:4px;flex:none}
 .x{border:0;background:transparent;cursor:pointer;padding:6px;border-radius:var(--r);color:var(--ink-60)}
 .x:hover{background:var(--ink-10);color:var(--ink)}
 .db{overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:8px 32px 48px;flex:1;min-height:0}
@@ -158,6 +170,7 @@ body.embedded.detail-open .hero,body.embedded.detail-open .ctrl,body.embedded.de
 .back{display:none;align-items:center;gap:6px;border:1px solid var(--ink-20);background:var(--surface);border-radius:var(--r);padding:6px 12px;cursor:pointer;font-size:14px;margin-bottom:12px}
 body.embedded .back{display:inline-flex}
 body.embedded .x{display:none}
+body.embedded .rz{display:none}
 @media (max-width:980px){.grid{grid-template-columns:repeat(2,1fr)}.inds{grid-template-columns:repeat(2,1fr)}}
 @media (max-width:640px){
   .wrap{padding:0 16px}
@@ -209,9 +222,10 @@ body.embedded .x{display:none}
 
 <div class="scrim" id="scrim"></div>
 <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="dtitle">
+  <div class="rz" id="rz" title="끌어서 너비 조절"><span class="grip"></span></div>
   <div class="dh"><div class="t"><button class="back" id="back"><svg class="i" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>목록으로</button><div class="meta" id="dmeta"></div><h2 id="dtitle"></h2></div>
-    <button class="x" id="close" aria-label="닫기"><svg class="i" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
-  <div class="db" id="dbody"></div>
+    <div class="btns"><button class="x" id="wide" aria-label="넓게 보기" title="넓게 / 좁게"><svg class="i" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button><button class="x" id="close" aria-label="닫기"><svg class="i" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div></div>
+  <div class="db" id="dbody" tabindex="-1"></div>
 </aside>
 
 <script>
@@ -308,6 +322,17 @@ const dr=document.getElementById('drawer'),scrim=document.getElementById('scrim'
 const EMBED=(()=>{try{return window.self!==window.top}catch(e){return true}})();
 if(EMBED){document.body.classList.add('embedded');document.querySelector('main.wrap').insertBefore(dr,document.querySelector('.foot'));}
 document.getElementById('back').onclick=()=>close();
+// resizable width
+const DW_MIN=480;
+function setW(w){const max=Math.max(DW_MIN,window.innerWidth-80);w=Math.min(Math.max(w,DW_MIN),max);document.documentElement.style.setProperty('--dw',w+'px');try{localStorage.setItem('ucx_dw',String(w))}catch(e){}return w}
+try{const sv=parseInt(localStorage.getItem('ucx_dw'));if(sv) setW(sv)}catch(e){}
+const rz=document.getElementById('rz');
+rz.addEventListener('pointerdown',e=>{if(EMBED)return;e.preventDefault();rz.setPointerCapture(e.pointerId);dr.classList.add('resizing');
+  const mv=ev=>setW(window.innerWidth-ev.clientX);
+  const up=()=>{dr.classList.remove('resizing');rz.removeEventListener('pointermove',mv);rz.removeEventListener('pointerup',up);rz.removeEventListener('pointercancel',up)};
+  rz.addEventListener('pointermove',mv);rz.addEventListener('pointerup',up);rz.addEventListener('pointercancel',up)});
+rz.addEventListener('dblclick',()=>setW(820));
+document.getElementById('wide').onclick=()=>{const cur=dr.getBoundingClientRect().width;setW(cur<window.innerWidth-200?window.innerWidth-80:820)};
 function open(uid,push=true){
   const d=DATA.find(x=>x.uid===uid); if(!d) return;
   const ind=META.industries.find(x=>x.name===d.industry);
@@ -327,9 +352,8 @@ function open(uid,push=true){
     sec('데이터셋에 꼭 넣을 예외',`<ul class="ex">${d.exceptions.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`)+
     sec('최종 결과',`<div class="out">${esc(d.output)}</div>`);
   dr.classList.add('on');scrim.classList.add('on');
-  if(EMBED){document.body.classList.add('detail-open');requestAnimationFrame(()=>{try{dr.scrollIntoView({block:'start'})}catch(e){window.scrollTo(0,0)}});}else{document.body.style.overflow='hidden';dr.querySelector('.db').scrollTop=0;}
+  if(EMBED){document.body.classList.add('detail-open');requestAnimationFrame(()=>{try{dr.scrollIntoView({block:'start'})}catch(e){window.scrollTo(0,0)}});}else{document.body.style.overflow='hidden';const db=dr.querySelector('.db');db.scrollTop=0;setTimeout(()=>db.focus({preventScroll:true}),260);}
   if(push){try{history.replaceState(null,'','#'+uid)}catch(e){}}
-  document.getElementById('close').focus();
 }
 function close(){dr.classList.remove('on');scrim.classList.remove('on');document.body.style.overflow='';document.body.classList.remove('detail-open');if(EMBED){const g=document.getElementById('grid');requestAnimationFrame(()=>{try{(document.querySelector('.rc')||g).scrollIntoView({block:'start'})}catch(e){}})}try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}}
 document.getElementById('grid').onclick=e=>{const c=e.target.closest('.card');if(c)open(c.dataset.id)};
