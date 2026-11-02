@@ -148,6 +148,16 @@ ul.why li{background:var(--surface-purple)}
 ul.why li::before{background:var(--key);box-shadow:inset 0 0 0 4px var(--surface-purple)}
 .ndi{font:500 12.5px var(--mono);color:var(--key);background:#fff;border:1px solid #DCD6FF;border-radius:var(--r-tag);padding:1px 6px;margin:0 1px;white-space:nowrap}
 .foot{font-size:12.5px;color:var(--ink-60);padding:24px 0 40px;border-top:1px solid var(--ink-20)}
+/* embedded (preview iframe) mode: detail opens in-page instead of a fixed drawer */
+body.embedded .scrim{display:none}
+body.embedded .drawer{position:static;transform:none;width:100%;height:auto;border:1px solid var(--ink-20);border-radius:var(--r);display:none;margin:0 0 40px;scroll-margin-top:72px}
+body.embedded .rc{scroll-margin-top:72px}
+body.embedded .drawer.on{display:block}
+body.embedded .db{overflow:visible;padding-bottom:24px}
+body.embedded.detail-open .hero,body.embedded.detail-open .ctrl,body.embedded.detail-open .filters,body.embedded.detail-open .rc,body.embedded.detail-open .grid{display:none}
+.back{display:none;align-items:center;gap:6px;border:1px solid var(--ink-20);background:var(--surface);border-radius:var(--r);padding:6px 12px;cursor:pointer;font-size:14px;margin-bottom:12px}
+body.embedded .back{display:inline-flex}
+body.embedded .x{display:none}
 @media (max-width:980px){.grid{grid-template-columns:repeat(2,1fr)}.inds{grid-template-columns:repeat(2,1fr)}}
 @media (max-width:640px){
   .wrap{padding:0 16px}
@@ -199,7 +209,7 @@ ul.why li::before{background:var(--key);box-shadow:inset 0 0 0 4px var(--surface
 
 <div class="scrim" id="scrim"></div>
 <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="dtitle">
-  <div class="dh"><div class="t"><div class="meta" id="dmeta"></div><h2 id="dtitle"></h2></div>
+  <div class="dh"><div class="t"><button class="back" id="back"><svg class="i" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>목록으로</button><div class="meta" id="dmeta"></div><h2 id="dtitle"></h2></div>
     <button class="x" id="close" aria-label="닫기"><svg class="i" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
   <div class="db" id="dbody"></div>
 </aside>
@@ -295,6 +305,9 @@ document.getElementById('reset').onclick=()=>{Object.values(sel).forEach(s=>s.cl
 
 // drawer
 const dr=document.getElementById('drawer'),scrim=document.getElementById('scrim');
+const EMBED=(()=>{try{return window.self!==window.top}catch(e){return true}})();
+if(EMBED){document.body.classList.add('embedded');document.querySelector('main.wrap').insertBefore(dr,document.querySelector('.foot'));}
+document.getElementById('back').onclick=()=>close();
 function open(uid,push=true){
   const d=DATA.find(x=>x.uid===uid); if(!d) return;
   const ind=META.industries.find(x=>x.name===d.industry);
@@ -313,12 +326,12 @@ function open(uid,push=true){
     sec('워크플로우 단계',`${flow(d.steps.map(s=>s.node))}<p class="raw" style="margin-top:8px">업무 패턴: ${esc(d.pattern)}. 비슷한 노드 조합의 업무를 묶어 부르는 이름이고, 참고용입니다.</p><ol class="steps" style="margin-top:12px">${d.steps.map(s=>`<li><span class="nd">${esc(s.node)}</span><span class="w">${esc(s.what)}</span></li>`).join('')}</ol>`)+
     sec('데이터셋에 꼭 넣을 예외',`<ul class="ex">${d.exceptions.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`)+
     sec('최종 결과',`<div class="out">${esc(d.output)}</div>`);
-  dr.classList.add('on');scrim.classList.add('on');document.body.style.overflow='hidden';
-  dr.querySelector('.db').scrollTop=0;
+  dr.classList.add('on');scrim.classList.add('on');
+  if(EMBED){document.body.classList.add('detail-open');requestAnimationFrame(()=>{try{dr.scrollIntoView({block:'start'})}catch(e){window.scrollTo(0,0)}});}else{document.body.style.overflow='hidden';dr.querySelector('.db').scrollTop=0;}
   if(push){try{history.replaceState(null,'','#'+uid)}catch(e){}}
   document.getElementById('close').focus();
 }
-function close(){dr.classList.remove('on');scrim.classList.remove('on');document.body.style.overflow='';try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}}
+function close(){dr.classList.remove('on');scrim.classList.remove('on');document.body.style.overflow='';document.body.classList.remove('detail-open');if(EMBED){const g=document.getElementById('grid');requestAnimationFrame(()=>{try{(document.querySelector('.rc')||g).scrollIntoView({block:'start'})}catch(e){}})}try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}}
 document.getElementById('grid').onclick=e=>{const c=e.target.closest('.card');if(c)open(c.dataset.id)};
 document.getElementById('close').onclick=close;scrim.onclick=close;
 document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});
